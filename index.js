@@ -100,6 +100,24 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc, options)
             res.send(result)
         })
+        // update user role
+        app.patch('/user/update/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email }
+            const updateDoc = {
+                $set: {
+                    ...user, timeStamp: new Date()
+                },
+            }
+            const result = await usersCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+        // get all the users
+        app.get('/users', async (req, res) => {
+            const result = await usersCollection.find().toArray()
+            res.send(result)
+        })
         // get all the contest 
         app.get('/contests', async (req, res) => {
             const result = await contestsCollection.find().toArray()
@@ -113,9 +131,16 @@ async function run() {
             res.send(result);
         })
         // add contest
-        app.post('/addContest', async(req, res) => {
+        app.post('/addContest', async (req, res) => {
             const contestData = req.body;
             const result = await contestsCollection.insertOne(contestData)
+            res.send(result)
+        })
+        // admin related api 
+        app.patch('/updateContest', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: id }
+            const result = await contestsCollection.updateOne(query)
             res.send(result)
         })
         // role management api 
@@ -124,7 +149,7 @@ async function run() {
             const email = req.params.email;
             const result = await usersCollection.findOne({ email: email })
             res.send(result)
-          })
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
