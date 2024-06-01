@@ -29,6 +29,22 @@ const client = new MongoClient(uri, {
     }
 });
 
+// const verifyToken = async(req, res, next) => {
+//     const token = req.cookies?.token;
+//     console.log(token);
+//     if(!token){
+//        return res.status(401).send({message: "Unauthorized access"})
+//     }
+//     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+//         if(err){
+//             return res.status(401).send({message: "Unauthorized access"})
+//         }
+//         req.user = decoded;
+//         next()
+//     })
+
+// }
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -95,6 +111,12 @@ async function run() {
             const query = { _id: new ObjectId(id) }
             const result = await contestsCollection.findOne(query)
             res.send(result);
+        })
+        // add contest
+        app.post('/addContest', async(req, res) => {
+            const contestData = req.body;
+            const result = await contestsCollection.insertOne(contestData)
+            res.send(result)
         })
         // role management api 
         // get user role 
