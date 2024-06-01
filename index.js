@@ -84,8 +84,6 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc, options)
             res.send(result)
         })
-
-        //   contest related api 
         // get all the contest 
         app.get('/contests', async (req, res) => {
             const result = await contestsCollection.find().toArray()
@@ -98,6 +96,14 @@ async function run() {
             const result = await contestsCollection.findOne(query)
             res.send(result);
         })
+        // role management api 
+        // get user role 
+        app.get('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await usersCollection.findOne({ email: email })
+            res.send(result)
+          })
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
