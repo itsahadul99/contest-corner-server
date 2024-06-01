@@ -113,6 +113,13 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
+        // delete a user
+        app.delete('/user/delete/:id', async(req, res) => {
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)}
+            const result = await usersCollection.deleteOne(query)
+            res.send(result)
+        })
         // get all the users
         app.get('/users', async (req, res) => {
             const result = await usersCollection.find().toArray()
