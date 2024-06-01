@@ -34,6 +34,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         const usersCollection = client.db('contestCornerDB').collection('users');
+        const contestsCollection = client.db('contestCornerDB').collection('contests');
         // auth related api
         app.post('/jwt', async (req, res) => {
             const user = req.body
@@ -70,19 +71,26 @@ async function run() {
             const query = { email: user?.email }
             const isExist = await usersCollection.findOne(query)
             if (isExist) {
-              return res.send(isExist)
+                return res.send(isExist)
             }
             const filter = { email: user?.email }
             const options = { upsert: true }
             const updateDoc = {
-              $set: {
-                ...user,
-                timeStamp: Date.now()
-              }
+                $set: {
+                    ...user,
+                    timeStamp: Date.now()
+                }
             }
             const result = await usersCollection.updateOne(filter, updateDoc, options)
             res.send(result)
-          })
+        })
+
+        //   contest related api 
+        // get all the contest 
+        app.get('/contests', async (req, res) => {
+            const result = await contestsCollection.find().toArray()
+            res.send(result)
+        })
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
