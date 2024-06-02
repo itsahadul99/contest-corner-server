@@ -29,22 +29,6 @@ const client = new MongoClient(uri, {
     }
 });
 
-// const verifyToken = async(req, res, next) => {
-//     const token = req.cookies?.token;
-//     console.log(token);
-//     if(!token){
-//        return res.status(401).send({message: "Unauthorized access"})
-//     }
-//     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-//         if(err){
-//             return res.status(401).send({message: "Unauthorized access"})
-//         }
-//         req.user = decoded;
-//         next()
-//     })
-
-// }
-
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -52,10 +36,25 @@ async function run() {
         const usersCollection = client.db('contestCornerDB').collection('users');
         const contestsCollection = client.db('contestCornerDB').collection('contests');
         // auth related api
+        const verifyToken = async (req, res, next) => {
+            const token = req.cookies?.token;
+            console.log(token);
+            if (!token) {
+                return res.status(401).send({ message: "Unauthorized access" })
+            }
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRETS, (err, decoded) => {
+                if (err) {
+                    return res.status(401).send({ message: "Unauthorized access" })
+                }
+                req.user = decoded;
+                next()
+            })
+
+        }
         app.post('/jwt', async (req, res) => {
-            const user = req.body
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-                expiresIn: '365d',
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRETS, {
+                expiresIn: '3hr',
             })
             res
                 .cookie('token', token, {
@@ -75,7 +74,6 @@ async function run() {
                         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
                     })
                     .send({ success: true })
-                console.log('Logout successful')
             } catch (err) {
                 res.status(500).send(err)
             }
@@ -98,6 +96,27 @@ async function run() {
                 }
             }
             const result = await usersCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+        // update user 
+        app.put('/user/update/:email', async (req, res) => {
+            const email = req.params.email;
+            const updateInfo = req.body;
+            const query = { email: email }
+            const updateDoc = {
+                $set: {
+                    address: updateInfo?.address,
+                    name: updateInfo?.name,
+                    img: updateInfo?.img_url,
+                }
+            }
+            const result = await usersCollection.updateOne(query, updateDoc)
+            res.send(result)
+        })
+        // get a user data 
+        app.get('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await usersCollection.findOne({ email })
             res.send(result)
         })
         // update user role
@@ -127,8 +146,15 @@ async function run() {
         })
         // get all the contest 
         app.get('/contests', async (req, res) => {
-            const result = await contestsCollection.find().toArray()
+            const page = parseInt(req.query.page);
+            const size = parseInt(req.query.size);
+            const result = await contestsCollection.find().skip(page * size).limit(size).toArray()
             res.send(result)
+        })
+        // number of contests
+        app.get('/contestCount', async (req, res) => {
+            const result = await contestsCollection.estimatedDocumentCount()
+            res.send({ count: result })
         })
         // get a single data for details 
         app.get('/contestDetails/:id', async (req, res) => {
@@ -151,9 +177,9 @@ async function run() {
             res.send(result)
         })
         // delete a contest 
-        app.delete('/contests/delete/:id', async(req, res) => {
+        app.delete('/contests/delete/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const result = await contestsCollection.deleteOne(query)
             res.send(result)
         })
@@ -168,6 +194,13 @@ async function run() {
             const id = req.params.id;
             const query = { _id: id }
             const result = await contestsCollection.updateOne(query)
+            res.send(result)
+        })
+        // get specific user contest data 
+        app.get('/myContest/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { creatorEmail: email }
+            const result = await contestsCollection.find(query).toArray()
             res.send(result)
         })
         // role management api 
