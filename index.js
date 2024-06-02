@@ -150,6 +150,13 @@ async function run() {
             const result = await contestsCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
+        // delete a contest 
+        app.delete('/contests/delete/:id', async(req, res) => {
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)}
+            const result = await contestsCollection.deleteOne(query)
+            res.send(result)
+        })
         // add contest
         app.post('/addContest', async (req, res) => {
             const contestData = req.body;
