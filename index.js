@@ -128,9 +128,17 @@ async function run() {
             const result = await contestsCollection.find().skip(page * size).limit(size).toArray()
             res.send(result)
         })
+        // get search data 
+        app.get('/contests/search', async (req, res) => {
+            const value = req.query.value;
+            if(!value || value === '') return
+            const regex = new RegExp(value, 'i')
+            const searchResult = await contestsCollection.find({ tags: { $regex: regex } }).toArray()
+            return res.send(searchResult)
+        })
         // get popular contest
-        app.get('/popularContests', async(req, res) => {
-            const query = {participation: -1}
+        app.get('/popularContests', async (req, res) => {
+            const query = { participation: -1 }
             const result = await contestsCollection.find().sort(query).toArray()
             res.send(result)
         })
@@ -240,9 +248,9 @@ async function run() {
             res.send(result)
         })
         // get user payment
-        app.get('/payments/:email', async(req, res) => {
+        app.get('/payments/:email', async (req, res) => {
             const email = req.params.email;
-            const query = {participantEmail: email}
+            const query = { participantEmail: email }
             const result = await paymentsCollection.find(query).toArray()
             res.send(result)
         })
