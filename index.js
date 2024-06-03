@@ -34,6 +34,7 @@ async function run() {
         // await client.connect();
         const usersCollection = client.db('contestCornerDB').collection('users');
         const contestsCollection = client.db('contestCornerDB').collection('contests');
+        const paymentsCollection = client.db('contestCornerDB').collection('payments')
         // auth related api
         const verifyToken = (req, res, next) => {
             if (!req.headers) {
@@ -210,6 +211,21 @@ async function run() {
                 clientSecret: paymentIntent.client_secret,
             });
         });
+        // store the payment data on db
+        app.post('/payments', async (req, res) => {
+            const paymentData = req.body;
+            const result = await paymentsCollection.insertOne(paymentData)
+            const updateComment = await contestsCollection.updateOne({
+                _id: new ObjectId(paymentData?.contestId)
+            },
+                {
+                    $inc: {
+                        participation: 1
+                    }
+                }
+            )
+            res.send(result)
+        })
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
