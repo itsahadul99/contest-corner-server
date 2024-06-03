@@ -3,6 +3,7 @@ require('dotenv').config()
 const cors = require('cors')
 const app = express()
 const jwt = require('jsonwebtoken')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require("stripe")(process.env.STRIPE_SK)
 const port = process.env.PORT || 5000;
 
@@ -16,7 +17,6 @@ const corsOptions = {
 app.use(cors(corsOptions))
 app.use(express.json())
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ifklbg0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -128,6 +128,12 @@ async function run() {
             const result = await contestsCollection.find().skip(page * size).limit(size).toArray()
             res.send(result)
         })
+        // get popular contest
+        app.get('/popularContests', async(req, res) => {
+            const query = {participation: -1}
+            const result = await contestsCollection.find().sort(query).toArray()
+            res.send(result)
+        })
         // number of contests
         app.get('/contestCount', async (req, res) => {
             const result = await contestsCollection.estimatedDocumentCount()
@@ -135,6 +141,13 @@ async function run() {
         })
         // get a single data for details 
         app.get('/contestDetails/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await contestsCollection.findOne(query)
+            res.send(result);
+        })
+        // edit contest 
+        app.get('/editContest/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await contestsCollection.findOne(query)
@@ -242,8 +255,6 @@ async function run() {
     }
 }
 run().catch(console.dir);
-
-
 
 app.get('/', (req, res) => {
     const result = "Hello from Contest Corner server";
