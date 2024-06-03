@@ -3,7 +3,7 @@ require('dotenv').config()
 const cors = require('cors')
 const app = express()
 const jwt = require('jsonwebtoken')
-const cookieParser = require('cookie-parser')
+const stripe = require("stripe")(process.env.STRIPE_SK)
 const port = process.env.PORT || 5000;
 
 
@@ -15,7 +15,6 @@ const corsOptions = {
 }
 app.use(cors(corsOptions))
 app.use(express.json())
-app.use(cookieParser())
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ifklbg0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -36,47 +35,24 @@ async function run() {
         const usersCollection = client.db('contestCornerDB').collection('users');
         const contestsCollection = client.db('contestCornerDB').collection('contests');
         // auth related api
-        const verifyToken = async (req, res, next) => {
-            const token = req.cookies?.token;
-            console.log(token);
-            if (!token) {
+        const verifyToken = (req, res, next) => {
+            if (!req.headers) {
                 return res.status(401).send({ message: "Unauthorized access" })
             }
-            jwt.verify(token, process.env.ACCESS_TOKEN_SECRETS, (err, decoded) => {
+            const token = req.headers.authorization.split(' ')[1]
+            jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
                 if (err) {
-                    return res.status(401).send({ message: "Unauthorized access" })
+                    return res.status(403).send({ message: 'Forbidden access' })
                 }
-                req.user = decoded;
+                req.decoded = decoded;
                 next()
             })
-
         }
+        // jwt api
         app.post('/jwt', async (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRETS, {
-                expiresIn: '3hr',
-            })
-            res
-                .cookie('token', token, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-                })
-                .send({ success: true })
-        })
-        // Logout
-        app.get('/logout', async (req, res) => {
-            try {
-                res
-                    .clearCookie('token', {
-                        maxAge: 0,
-                        secure: process.env.NODE_ENV === 'production',
-                        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-                    })
-                    .send({ success: true })
-            } catch (err) {
-                res.status(500).send(err)
-            }
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRETS, { expiresIn: '2h' })
+            res.send({ token })
         })
         // user related api 
         app.put('/user', async (req, res) => {
@@ -163,6 +139,13 @@ async function run() {
             const result = await contestsCollection.findOne(query)
             res.send(result);
         })
+        // get a single data for details 
+        app.get('/payment/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await contestsCollection.findOne(query)
+            res.send(result);
+        })
         // update contest status or approved contest
         app.patch('/contests/update/:id', async (req, res) => {
             const id = req.params.id;
@@ -210,7 +193,23 @@ async function run() {
             const result = await usersCollection.findOne({ email: email })
             res.send(result)
         })
-
+        // payment related api 
+        app.post("/create-payment-intent", async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100)
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+                automatic_payment_methods: {
+                    enabled: true,
+                },
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
