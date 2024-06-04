@@ -85,24 +85,19 @@ async function run() {
             res.send(result);
         })
 
+        // get all the submit data 
+        app.get('/submittedTask', async(req, res) => {
+            const result = await taskSubmittedCollection.find().toArray()
+            res.send(result)
+        })
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        // get all submission for a single contest
+        app.get('/contestSubmitDetails/:id', async(req, res) => {
+            const id = req.params.id;
+            const query = {contestId: id}
+            const result = await taskSubmittedCollection.find(query).toArray()
+            res.send(result)
+        })
         // update user 
         app.put('/user/update/:email', async (req, res) => {
             const email = req.params.email;
