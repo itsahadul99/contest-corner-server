@@ -79,22 +79,36 @@ async function run() {
         })
 
         // task submit related api 
-        app.post('/submittedTask', async(req, res) => {
+        app.post('/submittedTask', async (req, res) => {
             const submitData = req.body;
             const result = await taskSubmittedCollection.insertOne(submitData)
             res.send(result);
         })
 
         // get all the submit data 
-        app.get('/submittedTask', async(req, res) => {
+        app.get('/submittedTask', async (req, res) => {
             const result = await taskSubmittedCollection.find().toArray()
             res.send(result)
         })
-
+        // declare win
+        app.patch('/declareWin', async (req, res) => {
+            const id = req.query.id;
+            const updateData = req.body;
+            const filter = { contestId: id }
+            const updateDoc = {
+                $set: {
+                    ...updateData
+                }
+            }
+            const result = await taskSubmittedCollection.updateMany(filter, updateDoc)
+            const anotherUpdate = await contestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { contestResult: updateData?.contestResult, winnerName: updateData?.winnerName, winnerImg: updateData?.winnerImg } })
+            const anotherUpdates = await paymentsCollection.updateMany({ contestId: id }, { $set: { contestResult: updateData?.contestResult, winnerEmail: updateData?.winnerEmail } })
+            res.send(result)
+        })
         // get all submission for a single contest
-        app.get('/contestSubmitDetails/:id', async(req, res) => {
+        app.get('/contestSubmitDetails/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {contestId: id}
+            const query = { contestId: id }
             const result = await taskSubmittedCollection.find(query).toArray()
             res.send(result)
         })
@@ -154,7 +168,7 @@ async function run() {
         // get search data 
         app.get('/contests/search', async (req, res) => {
             const value = req.query.value;
-            if(!value || value === '') return
+            if (!value || value === '') return
             const regex = new RegExp(value, 'i')
             const searchResult = await contestsCollection.find({ tags: { $regex: regex } }).toArray()
             return res.send(searchResult)
