@@ -27,7 +27,22 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
-
+// middlewere
+const verifyToken = (req, res, next) => {
+    console.log(req.headers);
+    if (!req.headers) {
+        return res.status(401).send({ message: "Unauthorized access" })
+    }
+    const token = req.headers.authorization.split(' ')[1]
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' })
+        }
+        req.decoded = decoded;
+        next()
+    })
+}
+verifyToken
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -35,20 +50,7 @@ async function run() {
         const usersCollection = client.db('contestCornerDB').collection('users');
         const contestsCollection = client.db('contestCornerDB').collection('contests');
         const paymentsCollection = client.db('contestCornerDB').collection('payments')
-        // auth related api
-        const verifyToken = (req, res, next) => {
-            if (!req.headers) {
-                return res.status(401).send({ message: "Unauthorized access" })
-            }
-            const token = req.headers.authorization.split(' ')[1]
-            jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
-                if (err) {
-                    return res.status(403).send({ message: 'Forbidden access' })
-                }
-                req.decoded = decoded;
-                next()
-            })
-        }
+        const taskSubmittedCollection = client.db('contestCornerDB').collection('taskSubmits')
         // jwt api
         app.post('/jwt', async (req, res) => {
             const user = req.body;
@@ -75,6 +77,32 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc, options)
             res.send(result)
         })
+
+        // task submit related api 
+        app.post('/submittedTask', async(req, res) => {
+            const submitData = req.body;
+            const result = await taskSubmittedCollection.insertOne(submitData)
+            res.send(result);
+        })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // update user 
         app.put('/user/update/:email', async (req, res) => {
             const email = req.params.email;
