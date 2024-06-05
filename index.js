@@ -29,12 +29,11 @@ const client = new MongoClient(uri, {
 });
 // middlewere
 const verifyToken = (req, res, next) => {
-    console.log(req.headers);
     if (!req.headers) {
         return res.status(401).send({ message: "Unauthorized access" })
     }
-    const token = req.headers.authorization.split(' ')[1]
-    jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+    const token = req.headers.authorization.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRETS, (err, decoded) => {
         if (err) {
             return res.status(403).send({ message: 'Forbidden access' })
         }
@@ -42,7 +41,6 @@ const verifyToken = (req, res, next) => {
         next()
     })
 }
-verifyToken
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -106,17 +104,56 @@ async function run() {
             res.send(result)
         })
         // get the latest winner 
-        app.get('/latestWinner', async(req, res) => {
-            const result = await contestsCollection.find({contestResult: 'Declared Winner'}).sort({_id: -1}).limit(1).toArray();
+        app.get('/latestWinner', async (req, res) => {
+            const result = await contestsCollection.find({ contestResult: 'Declared Winner' }).sort({ _id: -1 }).limit(1).toArray();
             res.send(result)
         })
         // get the top 5 contest creators
-        app.get('/topCreators', async(req, res)=> {
-            const query = {participation: {
-                $gt: 0
-            } }
-            const result = await contestsCollection.find(query).sort({participation: -1}).limit(4).toArray()
+        app.get('/topCreators', async (req, res) => {
+            const query = {
+                participation: {
+                    $gt: 0
+                }
+            }
+            const result = await contestsCollection.find(query).sort({ participation: -1 }).limit(4).toArray()
             res.send(result)
+        })
+        // get user win or lose rate 
+        app.get('/userWin/:email', async (req, res) => {
+            const participantEmail = req.params.email;
+            const pipeline = [
+                {
+                    $match: { participantEmail } // Filter tasks by the given participant email
+                },
+                {
+                    $lookup: {
+                        from: 'payments',
+                        localField: 'participantEmail',
+                        foreignField: 'participantEmail',
+                        as: 'payments'
+                    }
+                },
+                {
+                    $facet: {
+                        attempted: [
+                            { $count: "attemptedCount" }
+                        ],
+                        completed: [
+                            { $match: { winnerEmail: participantEmail } },
+                            { $count: "completedCount" }
+                        ]
+                    }
+                },
+                {
+                    $project: {
+                        attemptedCount: { $ifNull: [{ $arrayElemAt: ["$attempted.attemptedCount", 0] }, 0] },
+                        completedCount: { $ifNull: [{ $arrayElemAt: ["$completed.completedCount", 0] }, 0] }
+                    }
+                }
+            ];
+            const result = await taskSubmittedCollection.aggregate(pipeline).toArray();
+            res.send({ attemptedCount:result[0].attemptedCount, completedCount:result[0].completedCount })
+
         })
         // get all submission for a single contest
         app.get('/contestSubmitDetails/:id', async (req, res) => {
@@ -167,7 +204,7 @@ async function run() {
             res.send(result)
         })
         // get all the users
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             const result = await usersCollection.find().toArray()
             res.send(result)
         })
@@ -260,7 +297,7 @@ async function run() {
         })
         // role management api 
         // get user role 
-        app.get('/user/:email', async (req, res) => {
+        app.get('/user/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const result = await usersCollection.findOne({ email: email })
             res.send(result)
