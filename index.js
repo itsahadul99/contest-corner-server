@@ -105,6 +105,11 @@ async function run() {
             const anotherUpdates = await paymentsCollection.updateMany({ contestId: id }, { $set: { contestResult: updateData?.contestResult, winnerEmail: updateData?.winnerEmail } })
             res.send(result)
         })
+        // get the latest winner 
+        app.get('/latestWinner', async(req, res) => {
+            const result = await contestsCollection.find({contestResult: 'Declared Winner'}).sort({_id: -1}).limit(1).toArray();
+            res.send(result)
+        })
         // get all submission for a single contest
         app.get('/contestSubmitDetails/:id', async (req, res) => {
             const id = req.params.id;
