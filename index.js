@@ -110,6 +110,14 @@ async function run() {
             const result = await contestsCollection.find({contestResult: 'Declared Winner'}).sort({_id: -1}).limit(1).toArray();
             res.send(result)
         })
+        // get the top 5 contest creators
+        app.get('/topCreators', async(req, res)=> {
+            const query = {participation: {
+                $gt: 0
+            } }
+            const result = await contestsCollection.find(query).sort({participation: -1}).limit(4).toArray()
+            res.send(result)
+        })
         // get all submission for a single contest
         app.get('/contestSubmitDetails/:id', async (req, res) => {
             const id = req.params.id;
