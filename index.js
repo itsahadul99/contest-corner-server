@@ -347,6 +347,45 @@ async function run() {
             const result = await paymentsCollection.find(query).toArray()
             res.send(result)
         })
+
+        // implement leader board
+        app.get('/leaderBoard', async(req, res) => {
+            const result = await taskSubmittedCollection.aggregate([
+                {
+                    $match: {contestResult: 'Declared Winner'}
+                },
+                {
+                    $group: {
+                        _id: '$winnerEmail',
+                        winCount: {$sum: 1}
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: '_id',
+                        foreignField: 'email',
+                        as: 'userDetails'
+                    }
+                },
+                {
+                    $unwind: "$userDetails"
+                },
+                {
+                    $project: {
+                      _id: 0,
+                      name: "$userDetails.name",
+                      email: "$_id",
+                      winCount: 1
+                    }
+                  },
+                  {
+                    $sort: { winCount: -1 }
+                  }
+            ]).toArray();
+            res.send(result)
+        })
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
