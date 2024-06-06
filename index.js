@@ -152,7 +152,7 @@ async function run() {
                 }
             ];
             const result = await taskSubmittedCollection.aggregate(pipeline).toArray();
-            res.send({ attemptedCount:result[0].attemptedCount, completedCount:result[0].completedCount })
+            res.send({ attemptedCount: result[0].attemptedCount, completedCount: result[0].completedCount })
 
         })
         // get all submission for a single contest
@@ -160,6 +160,12 @@ async function run() {
             const id = req.params.id;
             const query = { contestId: id }
             const result = await taskSubmittedCollection.find(query).toArray()
+            res.send(result)
+        })
+        // get win contest for user 
+        app.get('/winningContest/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await taskSubmittedCollection.find({ winnerEmail: email }).toArray();
             res.send(result)
         })
         // update user 
