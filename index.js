@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 
 // middleware
 const corsOptions = {
-    origin: ['http://localhost:5173',],
+    origin: ['http://localhost:5173', 'https://contest-corner.web.app', 'https://contest-corner.firebaseapp.com'],
     credentials: true,
     optionSuccessStatus: 200,
 }
@@ -27,7 +27,7 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
-// middlewere
+// middle were
 const verifyToken = (req, res, next) => {
     if (!req.headers) {
         return res.status(401).send({ message: "Unauthorized access" })
@@ -37,7 +37,7 @@ const verifyToken = (req, res, next) => {
         if (err) {
             return res.status(403).send({ message: 'Forbidden access' })
         }
-        req.decoded = decoded;
+        req.user = decoded;
         next()
     })
 }
@@ -49,12 +49,29 @@ async function run() {
         const contestsCollection = client.db('contestCornerDB').collection('contests');
         const paymentsCollection = client.db('contestCornerDB').collection('payments')
         const taskSubmittedCollection = client.db('contestCornerDB').collection('taskSubmits')
+        // authentication related
         // jwt api
         app.post('/jwt', async (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRETS, { expiresIn: '2h' })
             res.send({ token })
         })
+        // verify admin 
+        const verifyAdmin = async (req, res, next) => {
+            const user = req.user;
+            const query = { email: user?.email }
+            const result = await usersCollection.findOne(query)
+            if (!result || result?.role !== "admin") return res.status(401).send({ message: "Unauthorized access" })
+            next()
+        }
+        // verify admin 
+        const verifyCreator = async (req, res, next) => {
+            const user = req.user;
+            const query = { email: user?.email }
+            const result = await usersCollection.findOne(query)
+            if (!result || result?.role !== "creator") return res.status(401).send({ message: "Unauthorized access" })
+            next()
+        }
         // user related api 
         app.put('/user', async (req, res) => {
             const user = req.body;
@@ -89,7 +106,7 @@ async function run() {
             res.send(result)
         })
         // declare win
-        app.patch('/declareWin', async (req, res) => {
+        app.patch('/declareWin', verifyToken, verifyCreator, async (req, res) => {
             const id = req.query.id;
             const updateData = req.body;
             const filter = { contestId: id }
@@ -99,7 +116,7 @@ async function run() {
                 }
             }
             const result = await taskSubmittedCollection.updateMany(filter, updateDoc)
-            const anotherUpdate = await contestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { contestResult: updateData?.contestResult, winnerName: updateData?.winnerName, winnerImg: updateData?.winnerImg } })
+            const anotherUpdate = await contestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { contestResult: updateData?.contestResult, winnerName: updateData?.winnerName, winnerImg: updateData?.winnerImg, winnerEmail: updateData?.winnerEmail } })
             const anotherUpdates = await paymentsCollection.updateMany({ contestId: id }, { $set: { contestResult: updateData?.contestResult, winnerEmail: updateData?.winnerEmail } })
             res.send(result)
         })
@@ -163,13 +180,13 @@ async function run() {
             res.send(result)
         })
         // get win contest for user 
-        app.get('/winningContest/:email', async (req, res) => {
-            const email = req.params.email;
-            const result = await taskSubmittedCollection.find({ winnerEmail: email }).toArray();
+        app.get('/winningContest', async (req, res) => {
+            const name = req.query.name;
+            const result = await contestsCollection.find({ winnerName: name }).toArray();
             res.send(result)
         })
         // update user 
-        app.put('/user/update/:email', async (req, res) => {
+        app.put('/user/update/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const updateInfo = req.body;
             const query = { email: email }
@@ -184,13 +201,13 @@ async function run() {
             res.send(result)
         })
         // get a user data 
-        app.get('/user/:email', async (req, res) => {
+        app.get('/user/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const result = await usersCollection.findOne({ email })
             res.send(result)
         })
         // update user role
-        app.patch('/user/update/:email', async (req, res) => {
+        app.patch('/user/update/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const user = req.body;
             const filter = { email: email }
@@ -203,14 +220,14 @@ async function run() {
             res.send(result)
         })
         // delete a user
-        app.delete('/user/delete/:id', async (req, res) => {
+        app.delete('/user/delete/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await usersCollection.deleteOne(query)
             res.send(result)
         })
         // get all the users
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray()
             res.send(result)
         })
@@ -248,7 +265,7 @@ async function run() {
             res.send(result);
         })
         // edit contest 
-        app.get('/editContest/:id', async (req, res) => {
+        app.get('/editContest/:id', verifyToken, verifyCreator, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await contestsCollection.findOne(query)
@@ -262,7 +279,7 @@ async function run() {
             res.send(result);
         })
         // update contest status or approved contest
-        app.patch('/contests/update/:id', async (req, res) => {
+        app.patch('/contests/update/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const contest = req.body;
             const filter = { _id: new ObjectId(id) }
@@ -282,20 +299,20 @@ async function run() {
             res.send(result)
         })
         // add contest
-        app.post('/addContest', async (req, res) => {
+        app.post('/addContest', verifyToken, verifyCreator, async (req, res) => {
             const contestData = req.body;
             const result = await contestsCollection.insertOne(contestData)
             res.send(result)
         })
         // admin related api 
-        app.patch('/updateContest', async (req, res) => {
+        app.patch('/updateContest', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const query = { _id: id }
             const result = await contestsCollection.updateOne(query)
             res.send(result)
         })
         // get specific user contest data 
-        app.get('/myContest/:email', async (req, res) => {
+        app.get('/myContest/:email', verifyToken, verifyCreator, async (req, res) => {
             const email = req.params.email;
             const query = { creatorEmail: email }
             const result = await contestsCollection.find(query).toArray()
@@ -341,7 +358,7 @@ async function run() {
             res.send(result)
         })
         // get user payment
-        app.get('/payments/:email', async (req, res) => {
+        app.get('/payments/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { participantEmail: email }
             const result = await paymentsCollection.find(query).toArray()
@@ -349,15 +366,15 @@ async function run() {
         })
 
         // implement leader board
-        app.get('/leaderBoard', async(req, res) => {
-            const result = await taskSubmittedCollection.aggregate([
+        app.get('/leaderBoard', async (req, res) => {
+            const result = await contestsCollection.aggregate([
                 {
-                    $match: {contestResult: 'Declared Winner'}
+                    $match: { contestResult: 'Declared Winner' }
                 },
                 {
                     $group: {
                         _id: '$winnerEmail',
-                        winCount: {$sum: 1}
+                        winCount: { $sum: 1 }
                     }
                 },
                 {
@@ -373,15 +390,15 @@ async function run() {
                 },
                 {
                     $project: {
-                      _id: 0,
-                      name: "$userDetails.name",
-                      email: "$_id",
-                      winCount: 1
+                        _id: 0,
+                        name: "$userDetails.name",
+                        email: "$_id",
+                        winCount: 1
                     }
-                  },
-                  {
+                },
+                {
                     $sort: { winCount: -1 }
-                  }
+                }
             ]).toArray();
             res.send(result)
         })
