@@ -43,7 +43,6 @@ const verifyToken = (req, res, next) => {
 }
 async function run() {
     try {
-        // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         const usersCollection = client.db('contestCornerDB').collection('users');
         const contestsCollection = client.db('contestCornerDB').collection('contests');
@@ -333,7 +332,6 @@ async function run() {
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amount,
                 currency: "usd",
-                // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
                 automatic_payment_methods: {
                     enabled: true,
                 },
@@ -407,7 +405,6 @@ async function run() {
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
-        // Ensures that the client will close when you finish/error
         // await client.close();
     }
 }
