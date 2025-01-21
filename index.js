@@ -230,31 +230,25 @@ async function run() {
             const result = await usersCollection.find().toArray()
             res.send(result)
         })
-        // get all the contest 
+        // Get all the contests
         app.get('/contests', async (req, res) => {
-            const page = parseInt(req.query.page);
-            const size = parseInt(req.query.size);
-            const result = await contestsCollection.find().skip(page * size).limit(size).toArray()
-            res.send(result)
-        })
-        // get search data 
-        app.get('/contests/search', async (req, res) => {
-            const value = req.query.value;
-            if (!value || value === '') return
-            const regex = new RegExp(value, 'i')
-            const searchResult = await contestsCollection.find({ tags: { $regex: regex } }).toArray()
-            return res.send(searchResult)
-        })
-        // get popular contest
+            const value = req.query.value || '';
+            const regex = new RegExp(value, 'i');
+            const page = parseInt(req.query.page) || 0; 
+            const size = parseInt(req.query.size) || 10;
+            const result = await contestsCollection
+                .find({ tags: { $regex: regex } })
+                .skip(page * size) 
+                .limit(size)
+                .toArray();
+            const totalCount = await contestsCollection
+                .countDocuments({ tags: { $regex: regex } });
+            res.send({ data: result, totalCount });
+        });
         app.get('/popularContests', async (req, res) => {
             const query = { participation: -1 }
             const result = await contestsCollection.find().sort(query).toArray()
             res.send(result)
-        })
-        // number of contests
-        app.get('/contestCount', async (req, res) => {
-            const result = await contestsCollection.estimatedDocumentCount()
-            res.send({ count: result })
         })
         // get a single data for details 
         app.get('/contestDetails/:id', async (req, res) => {
